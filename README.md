@@ -47,7 +47,7 @@
 
 1. **Clone the Repo**:
    ```bash
-   git clone https://github.com/anishpereira1706/sentinel-zero.git
+   git clone https://github.com/anishpereira1706/sentinel_zero.git
    ```
 2. **Open index.html**: Because of the relative asset paths, you can simply open the `index.html` in any browser, or use a local dev server like `serve`.
 
