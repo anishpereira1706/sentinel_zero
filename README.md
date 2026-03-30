@@ -1,6 +1,6 @@
 # 🦾 SENTINEL ZERO | 2D Cyberpunk Shooter
 
-[![Vercel Deployment](https://img.shields.io/badge/Vercel-Live-brightgreen?logo=vercel)](https://sentinel-zero.vercel.app)
+[![Vercel Deployment](https://img.shields.io/badge/Vercel-Live-brightgreen?logo=vercel)](https://sentinel_zero.vercel.app)
 [![Tech Stack](https://img.shields.io/badge/Tech-HTML5_Canvas_|_Vanilla_JS-blue?logo=javascript)](https://developer.mozilla.org/en-US/docs/Web/API/Canvas_API)
 
 **SENTINEL ZERO** is a high-octane, side-scrolling browser shooter set in a neon-drenched dystopian metropolis. You take on the role of the city's final line of defense against an onslaught of mutated monsters and advanced undead warriors.
