@@ -1,0 +1,193 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <meta name="description" content="SENTINEL ZERO - A high-octane sidescroller shooter set in a neon-drenched dystopian metropolis.">
+    <title>SENTINEL ZERO | 2D Shooter</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Rajdhani:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <!-- Loading Screen -->
+    <div id="loading-screen">
+        <div class="loader-content">
+            <h1 class="game-logo">SENTINEL<span>ZERO</span></h1>
+            <div class="loader-bar-container">
+                <div class="loader-bar" id="loader-bar"></div>
+            </div>
+            <p class="loader-text" id="loader-text">Loading assets...</p>
+        </div>
+    </div>
+
+    <!-- Main Menu -->
+    <div id="main-menu" class="hidden">
+        <div class="menu-bg-overlay"></div>
+        <div class="menu-content">
+            <h1 class="game-logo menu-logo">SENTINEL<span>ZERO</span></h1>
+            <p class="menu-subtitle">SIDESCROLLER SHOOTER</p>
+            <div class="menu-buttons">
+                <button id="btn-start" class="menu-btn primary">
+                    <span class="btn-icon">▶</span> START GAME
+                </button>
+                <button id="btn-controls" class="menu-btn">
+                    <span class="btn-icon">⌨</span> CONTROLS
+                </button>
+            </div>
+            <div class="menu-footer">
+                <p>WASD / Arrow Keys to Move  •  Mouse to Aim & Shoot</p>
+            </div>
+        </div>
+    </div>
+
+    <!-- Controls Modal -->
+    <div id="controls-modal" class="modal hidden">
+        <div class="modal-content">
+            <h2>CONTROLS</h2>
+            <div class="controls-grid">
+                <div class="control-item">
+                    <kbd>W</kbd> / <kbd>↑</kbd>
+                    <span>Jump</span>
+                </div>
+                <div class="control-item">
+                    <kbd>A</kbd> / <kbd>←</kbd>
+                    <span>Move Left</span>
+                </div>
+                <div class="control-item">
+                    <kbd>D</kbd> / <kbd>→</kbd>
+                    <span>Move Right</span>
+                </div>
+                <div class="control-item">
+                    <kbd>S</kbd> / <kbd>↓</kbd>
+                    <span>Drop Down</span>
+                </div>
+                <div class="control-item">
+                    <kbd>LMB</kbd>
+                    <span>Shoot</span>
+                </div>
+                <div class="control-item">
+                    <kbd>R</kbd>
+                    <span>Reload</span>
+                </div>
+                <div class="control-item">
+                    <kbd>Space</kbd>
+                    <span>Dash</span>
+                </div>
+                <div class="control-item">
+                    <kbd>Esc</kbd>
+                    <span>Pause</span>
+                </div>
+            </div>
+            <button id="btn-close-controls" class="menu-btn">CLOSE</button>
+        </div>
+    </div>
+
+    <!-- Pause Screen -->
+    <div id="pause-screen" class="modal hidden">
+        <div class="modal-content">
+            <h2>PAUSED</h2>
+            <div class="menu-buttons">
+                <button id="btn-resume" class="menu-btn primary">RESUME</button>
+                <button id="btn-quit" class="menu-btn">QUIT TO MENU</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Over Screen -->
+    <div id="gameover-screen" class="modal hidden">
+        <div class="modal-content gameover">
+            <h2 class="gameover-title">MISSION FAILED</h2>
+            <div class="gameover-stats">
+                <div class="stat-item">
+                    <span class="stat-label">SCORE</span>
+                    <span class="stat-value" id="final-score">0</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">WAVE</span>
+                    <span class="stat-value" id="final-wave">1</span>
+                </div>
+                <div class="stat-item">
+                    <span class="stat-label">KILLS</span>
+                    <span class="stat-value" id="final-kills">0</span>
+                </div>
+            </div>
+            <div class="menu-buttons">
+                <button id="btn-retry" class="menu-btn primary">
+                    <span class="btn-icon">↻</span> RETRY
+                </button>
+                <button id="btn-menu" class="menu-btn">MAIN MENU</button>
+            </div>
+        </div>
+    </div>
+
+    <!-- Game Canvas -->
+    <canvas id="gameCanvas"></canvas>
+
+    <!-- HUD -->
+    <div id="hud" class="hidden">
+        <div class="hud-top">
+            <div class="hud-left">
+                <div class="health-container">
+                    <div class="health-icon">♥</div>
+                    <div class="health-bar-bg">
+                        <div class="health-bar" id="health-bar"></div>
+                        <span class="health-text" id="health-text">100</span>
+                    </div>
+                </div>
+                <div class="ammo-container">
+                    <div class="ammo-icon">◆</div>
+                    <span class="ammo-text" id="ammo-text">30 / 30</span>
+                </div>
+            </div>
+            <div class="hud-center">
+                <div class="wave-indicator" id="wave-indicator">
+                    <span class="wave-label">WAVE</span>
+                    <span class="wave-number" id="wave-number">1</span>
+                </div>
+            </div>
+            <div class="hud-right">
+                <div class="score-container">
+                    <span class="score-label">SCORE</span>
+                    <span class="score-value" id="score-value">0</span>
+                </div>
+                <div class="kills-container">
+                    <span class="kills-label">KILLS</span>
+                    <span class="kills-value" id="kills-value">0</span>
+                </div>
+            </div>
+        </div>
+        <div class="hud-bottom">
+            <div id="reload-indicator" class="hidden">
+                <div class="reload-bar-bg">
+                    <div class="reload-bar" id="reload-bar"></div>
+                </div>
+                <span>RELOADING</span>
+            </div>
+            <div id="dash-indicator">
+                <div class="dash-bar-bg">
+                    <div class="dash-bar" id="dash-bar"></div>
+                </div>
+                <span>DASH</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- Wave Announcement -->
+    <div id="wave-announce" class="hidden">
+        <h2 id="wave-announce-text">WAVE 1</h2>
+        <p id="wave-announce-sub">Survive the onslaught</p>
+    </div>
+
+    <!-- Crosshair -->
+    <div id="crosshair" class="hidden">
+        <div class="crosshair-dot"></div>
+        <div class="crosshair-line top"></div>
+        <div class="crosshair-line right"></div>
+        <div class="crosshair-line bottom"></div>
+        <div class="crosshair-line left"></div>
+    </div>
+
+    <script src="game.js"></script>
+</body>
+</html>
