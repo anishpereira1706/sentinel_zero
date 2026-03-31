@@ -29,7 +29,12 @@ const ASSETS = {
     skeletonSword: ASSET_BASE + 'Assets/Enemies_2/Skeleton/Sword_sprite.png',
     flyingEyeAttack: ASSET_BASE + 'Assets/Enemies_2/Flying%20eye/Attack3.png',
     flyingEyeProjectile: ASSET_BASE + 'Assets/Enemies_2/Flying%20eye/projectile_sprite.png',
+    // Elemental Projectiles (Fire/Water) - High Quality Frames
+    fireBall: Array.from({ length: 8 }, (_, i) => ASSET_BASE + `Assets/fire_water/Fire%20Ball/PNG/Fire%20Ball_Frame_0${i + 1}.png`),
+    waterBall: Array.from({ length: 8 }, (_, i) => ASSET_BASE + `Assets/fire_water/Water%20Ball/PNG/Water%20Ball_Frame_0${i + 1}.png`),
+    fireSpell: Array.from({ length: 8 }, (_, i) => ASSET_BASE + `Assets/fire_water/Fire%20Spell/PNG/Fire%20Spell_Frame_0${i + 1}.png`),
 };
+
 
 
 
@@ -49,15 +54,16 @@ const ENEMY_SPRITE_FRAME = 150; // All attack sprites are 150x150 per frame
 const ENEMY_SPRITES = {
     goblin: {
         asset: 'goblinAttack', frames: 12, frameW: 150, frameH: 150,
-        projAsset: 'goblinBomb', projFrames: 19, projFrameW: 100, projFrameH: 100,
+        projAsset: 'fireBall', projFrames: 8, projType: 'fireBall', projIsSequence: true,
         // Pixel bounds within 150x150 frame for grounding
         feetY: 100, topY: 65, charW: 33, charH: 36,
     },
     mushroom: {
         asset: 'mushroomAttack', frames: 11, frameW: 150, frameH: 150,
-        projAsset: 'mushroomProjectile', projFrames: 8, projFrameW: 50, projFrameH: 50,
+        projAsset: 'waterBall', projFrames: 8, projType: 'waterBall', projIsSequence: true,
         feetY: 100, topY: 64, charW: 25, charH: 37,
     },
+
     skeleton: {
         asset: 'skeletonAttack', frames: 6, frameW: 150, frameH: 150,
         projAsset: 'skeletonSword', projFrames: 7, projFrameW: 102, projFrameH: 102,
@@ -81,32 +87,60 @@ function loadAssets() {
         const assetNames = Object.keys(ASSETS);
 
         assetNames.forEach((key) => {
-            const img = new Image();
-            img.onload = () => {
-                images[key] = img;
-                assetsLoaded++;
-                const pct = (assetsLoaded / totalAssets) * 100;
-                loaderBar.style.width = pct + '%';
-                loaderText.textContent = `Loading ${key}... (${assetsLoaded}/${totalAssets})`;
-                if (assetsLoaded === totalAssets) {
-                    loaderText.textContent = 'Ready!';
-                    setTimeout(resolve, 500);
-                }
-            };
-            img.onerror = () => {
-                console.warn(`Failed to load: ${key}`);
-                assetsLoaded++;
-                const pct = (assetsLoaded / totalAssets) * 100;
-                loaderBar.style.width = pct + '%';
-                if (assetsLoaded === totalAssets) {
-                    loaderText.textContent = 'Ready!';
-                    setTimeout(resolve, 500);
-                }
-            };
-            img.src = ASSETS[key];
+            const assetPath = ASSETS[key];
+
+            // Handle sequence of frames
+            if (Array.isArray(assetPath)) {
+                images[key] = [];
+                let framesLoaded = 0;
+                assetPath.forEach((path, i) => {
+                    const img = new Image();
+                    img.onload = () => {
+                        images[key][i] = img;
+                        framesLoaded++;
+                        if (framesLoaded === assetPath.length) {
+                            assetsLoaded++;
+                            updateProgress();
+                        }
+                    };
+                    img.onerror = () => {
+                        console.warn(`Failed sequence: ${key}[${i}]`);
+                        framesLoaded++;
+                        if (framesLoaded === assetPath.length) {
+                            assetsLoaded++;
+                            updateProgress();
+                        }
+                    };
+                    img.src = path;
+                });
+            } else {
+                const img = new Image();
+                img.onload = () => {
+                    images[key] = img;
+                    assetsLoaded++;
+                    updateProgress();
+                };
+                img.onerror = () => {
+                    console.warn(`Failed single: ${key}`);
+                    assetsLoaded++;
+                    updateProgress();
+                };
+                img.src = assetPath;
+            }
         });
+
+        function updateProgress() {
+            const pct = (assetsLoaded / totalAssets) * 100;
+            loaderBar.style.width = pct + '%';
+            loaderText.textContent = `Loading... (${assetsLoaded}/${totalAssets})`;
+            if (assetsLoaded === totalAssets) {
+                loaderText.textContent = 'READY!';
+                setTimeout(resolve, 500);
+            }
+        }
     });
 }
+
 
 // ============ CANVAS SETUP ============
 const canvas = document.getElementById('gameCanvas');
@@ -177,6 +211,13 @@ document.addEventListener('mouseup', (e) => {
 });
 
 canvas.addEventListener('contextmenu', (e) => e.preventDefault());
+
+// Prevent "Sticky Keys" when browser loses focus
+window.addEventListener('blur', () => {
+    Object.keys(keys).forEach(k => keys[k] = false);
+    mouse.down = false;
+});
+
 
 // ============ CAMERA ============
 const camera = {
@@ -345,8 +386,11 @@ const player = {
     jumpForce: -13,
     onGround: false,
     facing: 1, // 1 = right, -1 = left
+    // Resource state
     health: 100,
     maxHealth: 100,
+    armor: 40, // Starting armor
+    maxArmor: 100,
     ammo: 30,
     maxAmmo: 30,
     fireRate: 100, // ms
@@ -380,6 +424,7 @@ function resetPlayer() {
     player.vx = 0;
     player.vy = 0;
     player.health = 100;
+    player.armor = 40; // Small startup shield
     player.ammo = 30;
     player.onGround = false;
     player.reloading = false;
@@ -398,20 +443,34 @@ function resetPlayer() {
 function updatePlayer(dt) {
     const msdt = dt * 1000;
 
-    // Movement
-    let moveX = 0;
-    if (keys['a'] || keys['arrowleft']) moveX -= 1;
-    if (keys['d'] || keys['arrowright']) moveX += 1;
+    // Default velocity to zero every frame (ensures no ghost movement)
+    let horizontalVelocity = 0;
+    if (keys['a'] || keys['arrowleft']) {
+        horizontalVelocity = -player.speed;
+        player.facing = -1;
+    }
+    if (keys['d'] || keys['arrowright']) {
+        horizontalVelocity = player.speed;
+        player.facing = 1;
+    }
 
     if (player.dashing) {
         player.dashTimer -= msdt;
         player.vx = player.dashSpeed * player.facing;
-        if (player.dashTimer <= 0) {
+        // Hard safety: dash cannot last more than 500ms
+        if (player.dashTimer <= 0 || player.dashTimer < -500) {
             player.dashing = false;
+            player.vx = 0;
         }
     } else {
-        player.vx = moveX * player.speed;
+        player.vx = horizontalVelocity;
     }
+
+    // Force stop if no keys are pressed and not dashing
+    if (!player.dashing && !keys['a'] && !keys['d'] && !keys['arrowleft'] && !keys['arrowright']) {
+        player.vx = 0;
+    }
+
 
     // Face toward mouse
     const worldMouseX = mouse.x + camera.x;
@@ -840,9 +899,10 @@ const EnemyTypes = {
         speed: 0.45, health: 600, damage: 30, color: '#4a3a28',
         score: 1000, shootRate: 1500, accentColor: '#ff4444',
         monster: 'skeleton', scale: 3.0,
-        ability: 'sword', swordCooldown: 1200, isBoss: true,
+        ability: 'fireSpell', fireSpellCooldown: 2500, isBoss: true,
     },
 };
+
 
 function spawnEnemy(type) {
     const side = Math.random() > 0.5 ? 1 : -1;
@@ -902,15 +962,18 @@ function spawnEnemy(type) {
 // ============ HEALTH PICKUPS ============
 let pickups = [];
 
-function spawnPickup(x, y) {
-    if (Math.random() < 0.3) { // 30% chance to drop health
+function spawnPickup(x, y, type = 'health') {
+    const chance = type === 'health' ? 0.3 : 1.0; // Health is random, armor can be forced
+    if (Math.random() < chance) {
         pickups.push({
             x: x,
             y: y,
             w: 16,
             h: 16,
             vy: -3,
-            heal: 15 + Math.floor(Math.random() * 15),
+            type: type, // 'health' or 'armor'
+            heal: type === 'health' ? 15 + Math.floor(Math.random() * 15) : 0,
+            armorVal: type === 'armor' ? 25 : 0,
             life: 10, // seconds before despawn
             bobTimer: 0,
         });
@@ -944,29 +1007,26 @@ function updatePickups(dt) {
         // Player pickup
         if (p.x + p.w > player.x && p.x < player.x + player.w &&
             p.y + p.h > player.y && p.y < player.y + player.h) {
-            player.health = Math.min(player.maxHealth, player.health + p.heal);
-            // Heal particles
-            for (let k = 0; k < 8; k++) {
-                particles.push(createParticle(
-                    player.x + player.w / 2, player.y + player.h / 2,
-                    (Math.random() - 0.5) * 4,
-                    -Math.random() * 5,
-                    '#22c55e',
-                    3,
-                    0.6
-                ));
+
+            if (p.type === 'armor') {
+                player.armor = Math.min(player.maxArmor, player.armor + p.armorVal);
+                // Armor particles (Blue)
+                for (let k = 0; k < 8; k++) {
+                    particles.push(createParticle(player.x + player.w / 2, player.y + player.h / 2, (Math.random() - 0.5) * 4, -Math.random() * 5, '#3b82f6', 3, 0.6));
+                }
+                damageNumbers.push({ x: player.x + player.w / 2, y: player.y - 15, value: '+' + p.armorVal + ' ARMOR', life: 1.2, vy: -2, color: '#3b82f6' });
+            } else {
+                player.health = Math.min(player.maxHealth, player.health + p.heal);
+                // Heal particles (Green)
+                for (let k = 0; k < 8; k++) {
+                    particles.push(createParticle(player.x + player.w / 2, player.y + player.h / 2, (Math.random() - 0.5) * 4, -Math.random() * 5, '#22c55e', 3, 0.6));
+                }
+                damageNumbers.push({ x: player.x + player.w / 2, y: player.y - 10, value: '+' + p.heal + ' HP', life: 1.2, vy: -2, color: '#22c55e' });
             }
-            damageNumbers.push({
-                x: player.x + player.w / 2,
-                y: player.y - 10,
-                value: '+' + p.heal + ' HP',
-                life: 1.2,
-                vy: -2,
-                color: '#22c55e',
-            });
             pickups.splice(i, 1);
             continue;
         }
+
 
         if (p.life <= 0) {
             pickups.splice(i, 1);
@@ -979,29 +1039,45 @@ function drawPickups() {
         const sx = p.x - camera.x + screenShake.x;
         const sy = p.y - camera.y + screenShake.y + Math.sin(p.bobTimer * 3) * 3;
 
+        // Visual setup for Armour vs Health
+        const colorMain = p.type === 'armor' ? '#3b82f6' : '#22c55e';
+        const colorLight = p.type === 'armor' ? '#60a5fa' : '#4ade80';
+        const glowColor = p.type === 'armor' ? '#3b82f6' : '#22c55e';
+
         // Glow
-        ctx.shadowColor = '#22c55e';
+        ctx.shadowColor = glowColor;
         ctx.shadowBlur = 12;
 
-        // Cross shape
-        ctx.fillStyle = '#22c55e';
-        ctx.fillRect(sx + 5, sy + 1, 6, 14);
-        ctx.fillRect(sx + 1, sy + 5, 14, 6);
-
-        // Bright center
-        ctx.fillStyle = '#4ade80';
-        ctx.fillRect(sx + 6, sy + 2, 4, 12);
-        ctx.fillRect(sx + 2, sy + 6, 12, 4);
+        if (p.type === 'armor') {
+            // Shield Shape (Armour)
+            ctx.fillStyle = colorMain;
+            ctx.beginPath();
+            ctx.moveTo(sx + 8, sy);
+            ctx.lineTo(sx + 16, sy + 4);
+            ctx.lineTo(sx + 16, sy + 10);
+            ctx.lineTo(sx + 8, sy + 16);
+            ctx.lineTo(sx, sy + 10);
+            ctx.lineTo(sx, sy + 4);
+            ctx.closePath();
+            ctx.fill();
+            ctx.fillStyle = colorLight;
+            ctx.fillRect(sx + 6, sy + 4, 4, 8); // Shield detail
+        } else {
+            // Cross shape (Health)
+            ctx.fillStyle = colorMain;
+            ctx.fillRect(sx + 5, sy + 1, 6, 14);
+            ctx.fillRect(sx + 1, sy + 5, 14, 6);
+            ctx.fillStyle = colorLight;
+            ctx.fillRect(sx + 6, sy + 2, 4, 12);
+            ctx.fillRect(sx + 2, sy + 6, 12, 4);
+        }
 
         ctx.shadowBlur = 0;
-
-        // Blinking when about to despawn
-        if (p.life < 3 && Math.floor(p.life * 4) % 2 === 0) {
-            ctx.globalAlpha = 0.5;
-        }
+        if (p.life < 3 && Math.floor(p.life * 4) % 2 === 0) ctx.globalAlpha = 0.5;
         ctx.globalAlpha = 1;
     }
 }
+
 
 // ============ AMBIENT PARTICLES ============
 let ambientParticles = [];
@@ -1073,7 +1149,12 @@ function killEnemy(index) {
     });
 
     // Chance to drop health pickup
-    spawnPickup(e.x + e.w / 2 - 8, e.y + e.h / 2);
+    spawnPickup(e.x + e.w / 2 - 8, e.y + e.h / 2, 'health');
+
+    // Armour spawn logic: drop every 5 kills or high point enemies
+    if (kills % 5 === 0 || e.isBoss) {
+        spawnPickup(e.x + e.w / 2 + 10, e.y + e.h / 2, 'armor');
+    }
 
     addScreenShake(4, 100);
     enemies.splice(index, 1);
@@ -1184,8 +1265,9 @@ function updateEnemies(dt) {
                     vy: Math.sin(angle) * projSpeed,
                     life: 150,
                     damage: e.damage,
-                    projType: e.ability, // 'spore', 'eyeBeam'
+                    projType: e.ability, // 'spore', 'eyeBeam', 'waterBall'
                     projAsset: e.spriteConfig.projAsset,
+                    projIsSequence: e.spriteConfig.projIsSequence || false,
                     projFrameW: e.spriteConfig.projFrameW,
                     projFrameH: e.spriteConfig.projFrameH,
                     projFrames: e.spriteConfig.projFrames,
@@ -1196,7 +1278,7 @@ function updateEnemies(dt) {
             }
         }
 
-        // Goblin bomb throw
+        // Goblin bomb/fire throw
         if (e.ability === 'bomb' && dist < 400) {
             const cd = e.bombCooldown || 4000;
             if (now - e.lastAbility >= cd) {
@@ -1208,8 +1290,9 @@ function updateEnemies(dt) {
                     vy: -5, // Lob upward
                     life: 180,
                     damage: e.damage * 1.5,
-                    projType: 'bomb',
+                    projType: e.spriteConfig.projType || 'bomb',
                     projAsset: e.spriteConfig.projAsset,
+                    projIsSequence: e.spriteConfig.projIsSequence || false,
                     projFrameW: e.spriteConfig.projFrameW,
                     projFrameH: e.spriteConfig.projFrameH,
                     projFrames: e.spriteConfig.projFrames,
@@ -1221,8 +1304,37 @@ function updateEnemies(dt) {
             }
         }
 
-        // Skeleton sword throw
-        if (e.ability === 'sword' && e.shootRate === 0 && dist < 350) {
+
+        // Boss Fire Spell Volley
+        if (e.isBoss && e.ability === 'fireSpell' && dist < 600) {
+            const cd = e.fireSpellCooldown || 3000;
+            if (now - e.lastAbility >= cd) {
+                const angle = Math.atan2(dy, dx);
+                // Triple volley!
+                for (let v = -1; v <= 1; v++) {
+                    const spread = v * 0.2;
+                    enemyBullets.push({
+                        x: e.x + e.w / 2,
+                        y: e.y + e.h / 3,
+                        vx: Math.cos(angle + spread) * 5,
+                        vy: Math.sin(angle + spread) * 5,
+                        life: 180,
+                        damage: e.damage * 1.2,
+                        projType: 'fireBall', // It's a fire spell made of projectiles
+                        projAsset: 'fireSpell',
+                        projIsSequence: true,
+                        projFrames: 8,
+                        projFrame: 0,
+                        projTimer: 0,
+                    });
+                }
+                e.lastAbility = now;
+                addScreenShake(6, 200); // Boss roar shake
+            }
+        }
+
+        // Skeleton sword throw (not used by boss anymore)
+        if (!e.isBoss && e.ability === 'sword' && e.shootRate === 0 && dist < 350) {
             const cd = e.swordCooldown || 2500;
             if (now - e.lastAbility >= cd) {
                 const angle = Math.atan2(dy, dx);
@@ -1251,7 +1363,19 @@ function updateEnemies(dt) {
             if (e.x + e.w > player.x && e.x < player.x + player.w &&
                 e.y + e.h > player.y && e.y < player.y + player.h) {
                 if (!e._damageCooldown || now - e._damageCooldown > 800) {
-                    player.health -= e.damage;
+                    // Armour absorption logic
+                    let dmg = e.damage;
+                    if (player.armor > 0) {
+                        const absorbed = Math.min(player.armor, dmg);
+                        player.armor -= absorbed;
+                        dmg -= absorbed;
+                        // Blue armor sparks
+                        for (let k = 0; k < 4; k++) {
+                            particles.push(createParticle(player.x + player.w / 2, player.y + player.h / 2, (Math.random() - 0.5) * 8, (Math.random() - 0.5) * 8, '#3b82f6', 2, 0.4));
+                        }
+                    }
+                    player.health -= dmg;
+
                     e._damageCooldown = now;
                     addScreenShake(5, 150);
 
@@ -1476,14 +1600,27 @@ function updateEnemyBullets(dt) {
             const hitRadius = b.projType === 'bomb' ? 25 : 12;
             if (b.x > player.x - hitRadius && b.x < player.x + player.w + hitRadius &&
                 b.y > player.y - hitRadius && b.y < player.y + player.h + hitRadius) {
-                player.health -= b.damage;
+
+                // Armour absorption logic
+                let dmg = b.damage;
+                if (player.armor > 0) {
+                    const absorbed = Math.min(player.armor, dmg);
+                    player.armor -= absorbed;
+                    dmg -= absorbed;
+                    // Blue armor sparks
+                    for (let k = 0; k < 6; k++) {
+                        particles.push(createParticle(b.x, b.y, (Math.random() - 0.5) * 6, (Math.random() - 0.5) * 6, '#3b82f6', 3, 0.4));
+                    }
+                }
+                player.health -= dmg;
+
                 addScreenShake(b.projType === 'bomb' ? 8 : 3, b.projType === 'bomb' ? 200 : 100);
 
                 // Hit particles - colored by projectile type
                 const hitColor = b.projType === 'bomb' ? '#ff8800' :
-                                 b.projType === 'spore' ? '#c75d8e' :
-                                 b.projType === 'sword' ? '#d4b476' :
-                                 b.projType === 'eyeBeam' ? '#e87070' : '#ef4444';
+                    b.projType === 'spore' ? '#c75d8e' :
+                        b.projType === 'sword' ? '#d4b476' :
+                            b.projType === 'eyeBeam' ? '#e87070' : '#ef4444';
                 const particleCount = b.projType === 'bomb' ? 8 : 3;
                 for (let k = 0; k < particleCount; k++) {
                     particles.push(createParticle(
@@ -1540,64 +1677,54 @@ function drawEnemyBullets() {
         const sy = b.y - camera.y + screenShake.y;
 
         // Try to draw sprite-based projectile
-        const projSheet = b.projAsset ? images[b.projAsset] : null;
-        if (projSheet && b.projFrameW) {
-            ctx.save();
-            ctx.imageSmoothingEnabled = false;
-            const frame = b.projFrame || 0;
-            const srcX = frame * b.projFrameW;
-            const renderSize = b.projType === 'bomb' ? 40 : b.projType === 'sword' ? 36 : 24;
+        const projAsset = b.projAsset ? images[b.projAsset] : null;
+        if (!projAsset) continue;
 
-            // Spin effect for swords
+        const frame = b.projFrame || 0;
+        const renderSize = (b.projType === 'fireBall' || b.projType === 'waterBall') ? 48 :
+            (b.projType === 'bomb') ? 40 :
+                (b.projType === 'sword') ? 36 : 24;
+
+        ctx.save();
+        ctx.imageSmoothingEnabled = false;
+
+        if (b.projIsSequence && Array.isArray(projAsset)) {
+            // Sequence of images (FireBall / WaterBall)
+            const img = projAsset[frame];
+            if (img) {
+                ctx.drawImage(img, sx - renderSize / 2, sy - renderSize / 2, renderSize, renderSize);
+            }
+        } else if (b.projFrameW) {
+            // Spritesheet (Standard Bomb / Sword)
+            const srcX = frame * b.projFrameW;
             if (b.spin) {
                 ctx.translate(sx, sy);
                 ctx.rotate(gameTime * 12);
-                ctx.drawImage(
-                    projSheet,
-                    srcX, 0,
-                    b.projFrameW, b.projFrameH,
-                    -renderSize / 2, -renderSize / 2,
-                    renderSize, renderSize
-                );
+                ctx.drawImage(projAsset, srcX, 0, b.projFrameW, b.projFrameH, -renderSize / 2, -renderSize / 2, renderSize, renderSize);
             } else {
-                ctx.drawImage(
-                    projSheet,
-                    srcX, 0,
-                    b.projFrameW, b.projFrameH,
-                    sx - renderSize / 2, sy - renderSize / 2,
-                    renderSize, renderSize
-                );
+                ctx.drawImage(projAsset, srcX, 0, b.projFrameW, b.projFrameH, sx - renderSize / 2, sy - renderSize / 2, renderSize, renderSize);
             }
+        }
 
-            // Glow effect
-            ctx.globalAlpha = 0.4;
-            const glowColor = b.projType === 'bomb' ? '#ff8800' :
-                              b.projType === 'spore' ? '#c75d8e' :
-                              b.projType === 'sword' ? '#d4b476' :
-                              '#e87070';
+        // Elemental Glow Effect
+        if (b.projType === 'fireBall' || b.projType === 'waterBall') {
+            ctx.globalAlpha = 0.5;
+            const glowColor = b.projType === 'fireBall' ? '#ff6600' : '#00aaff';
             ctx.shadowColor = glowColor;
-            ctx.shadowBlur = 10;
+            ctx.shadowBlur = 15;
             ctx.fillStyle = glowColor;
             ctx.beginPath();
-            ctx.arc(b.spin ? 0 : sx, b.spin ? 0 : sy, renderSize / 4, 0, Math.PI * 2);
+            ctx.arc(sx, sy, renderSize / 3, 0, Math.PI * 2);
             ctx.fill();
             ctx.shadowBlur = 0;
             ctx.globalAlpha = 1;
-
-            ctx.restore();
-            ctx.imageSmoothingEnabled = true;
-        } else {
-            // Fallback dot rendering
-            ctx.fillStyle = '#ff4444';
-            ctx.shadowColor = '#ff0000';
-            ctx.shadowBlur = 8;
-            ctx.beginPath();
-            ctx.arc(sx, sy, 4, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
         }
+
+        ctx.restore();
+        ctx.imageSmoothingEnabled = true;
     }
 }
+
 
 
 // ============ PARTICLES ============
@@ -1861,6 +1988,13 @@ function updateHUD() {
     healthBar.className = 'health-bar';
     if (healthPct < 0.25) healthBar.classList.add('low');
     else if (healthPct < 0.5) healthBar.classList.add('mid');
+
+    // Armour
+    const armorBar = document.getElementById('armor-bar');
+    const armorText = document.getElementById('armor-text');
+    const armorPct = Math.max(0, player.armor) / player.maxArmor;
+    armorBar.style.width = (armorPct * 100) + '%';
+    armorText.textContent = Math.max(0, Math.ceil(player.armor));
 
     // Ammo
     document.getElementById('ammo-text').textContent = `${player.ammo} / ${player.maxAmmo}`;

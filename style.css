@@ -87,6 +87,73 @@ canvas {
         0 0 80px rgba(168, 85, 247, 0.3);
 }
 
+.stat-bar-container {
+    display: flex;
+    align-items: center;
+    gap: 12px;
+    margin-bottom: 8px;
+    min-width: 280px;
+}
+
+.stat-icon {
+    font-size: 18px;
+    width: 24px;
+    text-align: center;
+    text-shadow: 0 0 10px currentColor;
+}
+
+.health-icon { color: #22c55e; }
+.armor-icon { color: #3b82f6; }
+.ammo-icon { color: #f59e0b; }
+
+.stat-bar-bg {
+    flex: 1;
+    height: 12px;
+    background: rgba(0, 0, 0, 0.4);
+    border-radius: 4px;
+    border: 1px solid rgba(255, 255, 255, 0.1);
+    position: relative;
+    overflow: hidden;
+}
+
+.stat-bar-bg.no-bg {
+    background: none;
+    border: none;
+    display: flex;
+    align-items: center;
+}
+
+.health-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #16a34a, #22c55e);
+    box-shadow: 0 0 15px rgba(34, 197, 94, 0.5);
+    transition: width 0.3s ease;
+}
+
+.armor-bar {
+    height: 100%;
+    background: linear-gradient(90deg, #2563eb, #3b82f6);
+    box-shadow: 0 0 15px rgba(59, 130, 246, 0.5);
+    transition: width 0.3s ease;
+}
+
+.stat-text {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 14px;
+    width: 40px;
+    text-align: right;
+    color: rgba(255, 255, 255, 0.9);
+}
+
+.ammo-text {
+    font-family: 'Orbitron', sans-serif;
+    font-weight: 700;
+    font-size: 18px;
+    color: #f59e0b;
+    text-shadow: 0 0 10px rgba(245, 158, 11, 0.4);
+}
+
 .loader-bar-container {
     width: 400px;
     height: 4px;

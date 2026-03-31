@@ -128,16 +128,30 @@
     <div id="hud" class="hidden">
         <div class="hud-top">
             <div class="hud-left">
-                <div class="health-container">
-                    <div class="health-icon">♥</div>
-                    <div class="health-bar-bg">
-                        <div class="health-bar" id="health-bar"></div>
-                        <span class="health-text" id="health-text">100</span>
+                <!-- Health Bar -->
+                <div class="stat-bar-container">
+                    <div class="stat-icon health-icon">♥</div>
+                    <div class="stat-bar-bg">
+                        <div id="health-bar" class="health-bar" style="width: 100%"></div>
                     </div>
+                    <span id="health-text" class="stat-text">100</span>
                 </div>
-                <div class="ammo-container">
-                    <div class="ammo-icon">◆</div>
-                    <span class="ammo-text" id="ammo-text">30 / 30</span>
+
+                <!-- Armour Bar -->
+                <div class="stat-bar-container">
+                    <div class="stat-icon armor-icon">🛡️</div>
+                    <div class="stat-bar-bg">
+                        <div id="armor-bar" class="armor-bar" style="width: 40%"></div>
+                    </div>
+                    <span id="armor-text" class="stat-text">40</span>
+                </div>
+
+                <!-- Ammo State -->
+                <div class="stat-bar-container">
+                    <div class="stat-icon ammo-icon">◆</div>
+                    <div class="stat-bar-bg no-bg">
+                        <span id="ammo-text" class="ammo-text">30 / 30</span>
+                    </div>
                 </div>
             </div>
             <div class="hud-center">
